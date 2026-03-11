@@ -117,14 +117,22 @@ const Index = () => {
     if (payload.audioFile) {
       const ext = payload.audioFile.name.split('.').pop();
       const fileName = `audio-${Date.now()}.${ext}`;
-      await supabase.storage.from("media").upload(fileName, payload.audioFile);
+      const { error } = await supabase.storage.from("media").upload(fileName, payload.audioFile);
+      if (error) {
+        alert(`Audio upload failed: ${error.message}. Please check your Supabase Storage policies!`);
+        return;
+      }
       audioUrl = supabase.storage.from("media").getPublicUrl(fileName).data.publicUrl;
     }
 
     if (payload.coverFile) {
       const ext = payload.coverFile.name.split('.').pop();
       const fileName = `cover-${Date.now()}.${ext}`;
-      await supabase.storage.from("media").upload(fileName, payload.coverFile);
+      const { error } = await supabase.storage.from("media").upload(fileName, payload.coverFile);
+      if (error) {
+        alert(`Cover upload failed: ${error.message}. Please check your Supabase Storage policies!`);
+        return;
+      }
       coverUrl = supabase.storage.from("media").getPublicUrl(fileName).data.publicUrl;
     }
 
