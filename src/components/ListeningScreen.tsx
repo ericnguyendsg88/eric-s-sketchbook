@@ -270,9 +270,10 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
   const progress = duration > 0 ? currentTime / duration : 0;
 
   // Center slide style + Scroll parallax for mobile
-  const scrollScale = Math.max(0.7, 1 - (pageScroll / 600));
-  const scrollTranslateY = Math.min(0, pageScroll / -4);
-  const scrollOpacity = Math.max(0, 1 - (pageScroll / 400));
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const scrollScale = isMobile ? Math.max(0.7, 1 - (pageScroll / 600)) : 1;
+  const scrollTranslateY = isMobile ? Math.min(0, pageScroll / -4) : 0;
+  const scrollOpacity = isMobile ? Math.max(0, 1 - (pageScroll / 400)) : 1;
 
   const centerStyle = slideDir
     ? {
@@ -611,9 +612,8 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
 
         {/* LYRICS panel (Apple Music style glass) */}
         <div
-          className="relative z-30 flex-shrink-0 flex flex-col gap-4 py-8 px-6 md:px-8 overflow-visible md:overflow-y-auto bg-black/10 md:bg-black/5 rounded-[2rem] md:rounded-3xl backdrop-blur-[32px] border border-white/20 shadow-xl"
+          className="relative z-30 flex-shrink-0 flex flex-col gap-4 py-8 px-6 md:px-8 overflow-visible md:overflow-y-auto bg-black/10 md:bg-black/5 rounded-[2rem] md:rounded-3xl backdrop-blur-[32px] border border-white/20 shadow-xl w-full md:w-[380px] lg:w-[450px]"
           style={{ 
-            width: "100%", 
             scrollbarWidth: "none", 
             minHeight: "85vh",
             marginTop: "10vh", // Provides space for natural scrolling past the sticky header
