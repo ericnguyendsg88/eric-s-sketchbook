@@ -216,21 +216,17 @@ const Index = () => {
     >
       {/* ── Player view ── */}
       {view === "player" && activeDemo && (
-        <div 
-          className="fixed inset-0 z-50 animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out"
-        >
-          <ListeningScreen
-            demo={activeDemo}
-            allDemos={openFolderDemos.length > 0 ? openFolderDemos : demos.filter((d) => d.year === activeDemo.year)}
-            role={role}
-            onBack={handleBackToFolder}
-            onSelectDemo={(d) => setActiveDemo(d)}
-            liked={likedIds.has(activeDemo.id)}
-            likeCount={likeCounts[activeDemo.id] ?? 0}
-            onLike={() => handleLike(activeDemo.id)}
-            onTrim={(start, end) => handleTrimDemo(activeDemo.id, start, end)}
-          />
-        </div>
+        <ListeningScreen
+          demo={activeDemo}
+          allDemos={openFolderDemos.length > 0 ? openFolderDemos : demos.filter((d) => d.year === activeDemo.year)}
+          role={role}
+          onBack={handleBackToFolder}
+          onSelectDemo={(d) => setActiveDemo(d)}
+          liked={likedIds.has(activeDemo.id)}
+          likeCount={likeCounts[activeDemo.id] ?? 0}
+          onLike={() => handleLike(activeDemo.id)}
+          onTrim={(start, end) => handleTrimDemo(activeDemo.id, start, end)}
+        />
       )}
 
       {/* Render the rest of the application behind the player */}

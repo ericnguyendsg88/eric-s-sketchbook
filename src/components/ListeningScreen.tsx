@@ -290,7 +290,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-[#f6f6f6]" />
+      <div className="fixed inset-0 z-40 bg-[#f6f6f6] animate-in fade-in duration-500" />
       
       {/* ── Apple Music Glassmorphism Background (Static) ── */}
       {demo.coverUrl && (
@@ -319,7 +319,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
       />
 
     <div
-      className="fixed inset-0 z-50 flex flex-col p-4 md:p-8 overflow-y-auto overflow-x-hidden selection:bg-black selection:text-white transition-opacity duration-300 scroll-smooth isolate"
+      className="fixed inset-0 z-50 flex flex-col p-4 md:p-8 overflow-y-auto overflow-x-hidden selection:bg-black selection:text-white transition-opacity scroll-smooth isolate animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out"
       style={{ opacity: 1 }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -886,6 +886,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
           to   { opacity: 0; }
         }
       `}</style>
+    </div>
     </>
   );
 };
