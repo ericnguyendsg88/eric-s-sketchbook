@@ -15,7 +15,8 @@ export default {
     extend: {
       fontFamily: {
         display: ["EB Garamond", "serif"],
-        mono: ["Spline Sans Mono", "monospace"],
+        mono: ["EB Garamond", "serif"],
+        sans: ["EB Garamond", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
