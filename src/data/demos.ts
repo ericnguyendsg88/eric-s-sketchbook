@@ -1,6 +1,7 @@
 export interface LyricLine {
   text: string;
   finished: boolean;
+  timestamp?: number;
 }
 
 export interface Demo {

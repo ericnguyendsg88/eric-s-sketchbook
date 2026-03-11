@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { Demo } from "@/data/demos";
+import type { Demo, LyricLine } from "@/data/demos";
 import { yearColors } from "@/data/demos";
+import { supabase } from "@/lib/supabase";
 
 export type UserRole = "artist" | "listener";
 
@@ -56,6 +57,11 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
   const [staticCoverUrl, setStaticCoverUrl] = useState<string | null>(null);
   const [trimStart, setTrimStart] = useState(demo.trimStart ?? 0);
   const [trimEnd, setTrimEnd] = useState(demo.trimEnd ?? 0);
+
+  // Sync Studio State
+  const [syncMode, setSyncMode] = useState(false);
+  const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>(demo.lyrics);
+  const [syncIndex, setSyncIndex] = useState(0);
 
   useEffect(() => {
     setStaticCoverUrl(null); // Instantly clear previous static cover
@@ -165,13 +171,30 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
   // Keyboard
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Intercept for Tap-To-Sync
+      if (syncMode) {
+        if (e.key === " ") {
+          e.preventDefault();
+          if (syncIndex < syncedLyrics.length) {
+            setSyncedLyrics(prev => {
+              const copy = [...prev];
+              copy[syncIndex] = { ...copy[syncIndex], timestamp: currentTime };
+              return copy;
+            });
+            setSyncIndex(i => i + 1);
+          }
+        }
+        return;
+      }
+
+      // Normal map
       if (e.key === "ArrowRight") goNext();
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === " ") { e.preventDefault(); togglePlay(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goNext, goPrev]);
+  }, [goNext, goPrev, syncMode, syncIndex, syncedLyrics, currentTime]);
 
   // Touch swipe
   const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
@@ -246,17 +269,23 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
 
   const progress = duration > 0 ? currentTime / duration : 0;
 
-  // Center slide style
+  // Center slide style + Scroll parallax for mobile
+  const scrollScale = Math.max(0.7, 1 - (pageScroll / 600));
+  const scrollTranslateY = Math.min(0, pageScroll / -4);
+  const scrollOpacity = Math.max(0, 1 - (pageScroll / 400));
+
   const centerStyle = slideDir
     ? {
-        transform: slideDir === "left" ? "translateX(-50px)" : "translateX(50px)",
+        transform: `${slideDir === "left" ? "translateX(-50px)" : "translateX(50px)"} scale(${scrollScale}) translateY(${scrollTranslateY}px)`,
         opacity: 0,
         transition: "transform 0.26s cubic-bezier(0.4,0,0.2,1), opacity 0.26s ease",
+        transformOrigin: "top center",
       }
     : {
-        transform: "translateX(0)",
-        opacity: 1,
+        transform: `translateX(0) scale(${scrollScale}) translateY(${scrollTranslateY}px)`,
+        opacity: scrollOpacity,
         transition: "transform 0.26s cubic-bezier(0.4,0,0.2,1), opacity 0.26s ease",
+        transformOrigin: "top center",
       };
 
   return (
@@ -406,8 +435,8 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
             style={{
               width: "min(340px, 70vw)",
               height: "min(340px, 70vw)",
-              transform: `scale(${Math.max(0.4, (isPlaying ? 1.02 : 0.98) - (pageScroll / 800))}) translateY(${Math.min(0, pageScroll / -2)}px)`,
-              transformOrigin: "top center",
+              transform: `scale(${isPlaying ? 1.02 : 0.98})`,
+              transformOrigin: "center center",
               boxShadow: `0 24px 64px rgba(0,0,0,0.2), 0 6px 20px rgba(0,0,0,0.1)`,
             }}
           >
@@ -577,11 +606,12 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
 
         {/* LYRICS panel (Apple Music style glass) */}
         <div
-          className="flex-shrink-0 flex flex-col gap-4 py-8 px-6 md:px-8 overflow-visible md:overflow-y-auto bg-black/10 md:bg-black/5 rounded-[2rem] md:rounded-3xl backdrop-blur-2xl border border-white/20 shadow-xl"
+          className="relative z-30 flex-shrink-0 flex flex-col gap-4 py-8 px-6 md:px-8 overflow-visible md:overflow-y-auto bg-black/10 md:bg-black/5 rounded-[2rem] md:rounded-3xl backdrop-blur-[32px] border border-white/20 shadow-xl"
           style={{ 
             width: "100%", 
             scrollbarWidth: "none", 
-            minHeight: "75vh",
+            minHeight: "85vh",
+            marginTop: "10vh", // Provides space for natural scrolling past the sticky header
             maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)",
             WebkitMaskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)"
           }}
@@ -593,37 +623,119 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
             }
           `}</style>
           
-          <div className="flex items-center gap-3 mb-4 mt-8">
+          <div className="flex items-center justify-between mb-4 mt-8">
             <p className="font-display text-2xl font-bold tracking-tight text-black/80">Lyrics</p>
+            {role === "artist" && demo.lyrics.length > 0 && !syncMode && (
+              <button 
+                onClick={() => {
+                   setSyncMode(true);
+                   setSyncIndex(0);
+                   setSyncedLyrics(demo.lyrics.map(l => ({...l, timestamp: undefined})));
+                   if (audioRef.current) {
+                     audioRef.current.currentTime = 0;
+                     audioRef.current.play();
+                     setIsPlaying(true);
+                   }
+                }}
+                className="text-xs font-mono px-4 py-2 rounded-full bg-black/5 text-black hover:bg-black hover:text-white transition-all duration-300"
+              >
+                Tap-to-Sync Setup
+              </button>
+            )}
+            {syncMode && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-black/50 animate-pulse mr-2 md:inline hidden">
+                  {syncIndex < syncedLyrics.length ? "Press SPACEBAR on each line..." : "All done!"}
+                </span>
+                <button 
+                  onClick={async () => {
+                     setSyncMode(false);
+                     demo.lyrics = syncedLyrics; // Mutate local object for instant feedback
+                     await supabase.from("demos").update({ lyrics: syncedLyrics }).eq("id", demo.id);
+                     if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
+                  }}
+                  className="text-[11px] font-mono font-bold tracking-widest px-4 py-2 rounded-full bg-[#111] text-white hover:bg-black transition-all duration-300 shadow-lg"
+                >
+                  SAVE SYNC
+                </button>
+              </div>
+            )}
           </div>
 
           {demo.lyrics.length > 0 ? (
             <div className="flex flex-col gap-8 pb-32">
-              {demo.lyrics.map((line, i) => {
+              {(syncMode ? syncedLyrics : demo.lyrics).map((line, i) => {
                 const isFinished = line.finished;
                 const comments = lyricComments[i] || [];
                 const isCommentOpen = commentOpen === i;
 
+                // Sync Highlight Logic
+                const lyricsArray = syncMode ? syncedLyrics : demo.lyrics;
+                const activeLyricIndex = lyricsArray.findIndex((l, index, arr) => {
+                  if (l.timestamp === undefined) return false;
+                  const nextL = arr[index + 1];
+                  if (!nextL || nextL.timestamp === undefined) return currentTime >= l.timestamp;
+                  return currentTime >= l.timestamp && currentTime < nextL.timestamp;
+                });
+                
+                const isActive = activeLyricIndex === i;
+                const isPendingSync = syncMode && i === syncIndex;
+
+                let textColor = isFinished ? "rgba(0,0,0,0.8)" : "rgba(0,0,0,0.4)";
+                let scale = "scale(1)";
+                const textStyle: React.CSSProperties = { transition: "all 0.3s cubic-bezier(0.34,1.56,0.64,1)" };
+
+                if (isActive && !syncMode) {
+                   textColor = palette.accent;
+                   scale = "scale(1.05)";
+                   textStyle.textShadow = `0 4px 12px ${palette.accent}66`;
+                } else if (isPendingSync) {
+                   textColor = palette.accent;
+                   scale = "scale(1.05)";
+                   textStyle.textShadow = `0 4px 12px ${palette.accent}66`;
+                } else if (syncMode && line.timestamp !== undefined) {
+                   textColor = "rgba(0,0,0,0.2)"; // already synced lines fade out
+                } else if (!isFinished) {
+                   textStyle.textDecoration = "underline wavy";
+                   textStyle.textDecorationColor = "rgba(0,0,0,0.2)";
+                   textStyle.textUnderlineOffset = "6px";
+                }
+
                 return (
-                  <div key={i} className="group relative">
+                  <div key={i} className="group relative transition-all duration-300" style={{ transform: scale, transformOrigin: 'left' }}>
+                    
+                    {/* Visual sync pulse guide while syncing */}
+                    {isPendingSync && (
+                      <div className="absolute -left-6 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full animate-ping" style={{ background: palette.accent }} />
+                    )}
+
                     <p
-                      onClick={() => setCommentOpen(isCommentOpen ? null : i)}
-                      className={`font-display text-2xl md:text-3xl font-medium leading-tight relative transition-all duration-300 ${role === "listener" ? "cursor-pointer hover:text-black hover:scale-[1.02] origin-left" : ""}`}
-                      style={
-                        isFinished
-                          ? { color: "rgba(0,0,0,0.8)", textShadow: "0 2px 10px rgba(255,255,255,0.3)" }
-                          : {
-                              color: "rgba(0,0,0,0.4)",
-                              textDecoration: "underline wavy",
-                              textDecorationColor: `rgba(0,0,0,0.2)`,
-                              textUnderlineOffset: "6px",
-                            }
-                      }
+                      onClick={() => {
+                        if (syncMode) {
+                          // Allow tapping directly on the lyric to sync it on mobile
+                          if (syncIndex === i) {
+                            setSyncedLyrics(prev => {
+                              const copy = [...prev];
+                              copy[i] = { ...copy[i], timestamp: currentTime };
+                              return copy;
+                            });
+                            setSyncIndex(idx => idx + 1);
+                          }
+                          return;
+                        }
+                        if (role === "listener") setCommentOpen(isCommentOpen ? null : i);
+                        else if (line.timestamp !== undefined && audioRef.current) {
+                           audioRef.current.currentTime = line.timestamp;
+                           if (!isPlaying) togglePlay();
+                        }
+                      }}
+                      className={`font-display text-2xl md:text-3xl font-medium leading-tight relative transition-all duration-300 ${!syncMode && role === "listener" ? "cursor-pointer hover:text-black hover:scale-[1.02] origin-left" : (!syncMode && line.timestamp !== undefined ? "cursor-pointer hover:opacity-100" : (isPendingSync ? "cursor-pointer" : ""))}`}
+                      style={{ color: textColor, ...textStyle }}
                     >
                       {line.text}
                       
                       {/* Little comment indicator */}
-                      {(comments.length > 0 || (role === "listener" && commentOpen === i)) && (
+                      {!syncMode && (comments.length > 0 || (role === "listener" && commentOpen === i)) && (
                         <span 
                           className="inline-block ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded-full"
                           style={{ background: `${palette.accent}15`, color: palette.accent }}

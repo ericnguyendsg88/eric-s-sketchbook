@@ -210,31 +210,39 @@ const Index = () => {
   const handleBackToFolder = ()           => setView("folder");
   const handleBackToHome   = ()           => { setView("home"); setOpenYear(null); };
 
-  // ── Player view ──
-  if (view === "player" && activeDemo) {
-    const playerDemos = openFolderDemos.length > 0
-      ? openFolderDemos
-      : demos.filter((d) => d.year === activeDemo.year);
-
-    return (
-      <ListeningScreen
-        demo={activeDemo}
-        allDemos={playerDemos}
-        role={role}
-        onBack={handleBackToFolder}
-        onSelectDemo={(d) => setActiveDemo(d)}
-        liked={likedIds.has(activeDemo.id)}
-        likeCount={likeCounts[activeDemo.id] ?? 0}
-        onLike={() => handleLike(activeDemo.id)}
-        onTrim={(start, end) => handleTrimDemo(activeDemo.id, start, end)}
-      />
-    );
-  }
-
   return (
     <div
       className={`min-h-screen transition-all duration-[1800ms] ease-out bg-sketchy ${focused ? "opacity-100" : "opacity-60"}`}
     >
+      {/* ── Player view ── */}
+      {view === "player" && activeDemo && (
+        <div 
+          className="fixed inset-0 z-50 animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out"
+        >
+          <ListeningScreen
+            demo={activeDemo}
+            allDemos={openFolderDemos.length > 0 ? openFolderDemos : demos.filter((d) => d.year === activeDemo.year)}
+            role={role}
+            onBack={handleBackToFolder}
+            onSelectDemo={(d) => setActiveDemo(d)}
+            liked={likedIds.has(activeDemo.id)}
+            likeCount={likeCounts[activeDemo.id] ?? 0}
+            onLike={() => handleLike(activeDemo.id)}
+            onTrim={(start, end) => handleTrimDemo(activeDemo.id, start, end)}
+          />
+        </div>
+      )}
+
+      {/* Render the rest of the application behind the player */}
+      <div 
+        className="min-h-screen transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]"
+        style={{ 
+          transform: view === "player" ? "scale(0.96) translateY(-2%)" : "scale(1) translateY(0)",
+          opacity: view === "player" ? 0.3 : 1,
+          pointerEvents: view === "player" ? "none" : "auto",
+          filter: view === "player" ? "blur(8px)" : "blur(0px)" 
+        }}
+      >
       {showUpload && (
         <UploadModal 
           onClose={() => { setShowUpload(false); setEditingDemo(undefined); }} 
@@ -548,6 +556,8 @@ const Index = () => {
           )}
         </main>
       )}
+      {/* ── Footer to close the page context ── */}
+      </div>
     </div>
   );
 };
