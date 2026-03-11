@@ -38,9 +38,17 @@ const Index = () => {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
+  const [showSetPassword, setShowSetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+
   // ── Restore persisted demos from Supabase on mount ──
   useEffect(() => {
     (async () => {
+      // Check for invite or recovery links in the URL
+      if (window.location.hash.includes("type=invite") || window.location.hash.includes("type=recovery")) {
+        setShowSetPassword(true);
+      }
+
       // Check auth Session
       const { data: { session } } = await supabase.auth.getSession();
       if (session) setRole("artist");
@@ -270,6 +278,53 @@ const Index = () => {
                   </button>
                   <button type="submit" className="px-6 py-2.5 rounded-full font-mono text-xs text-white" style={{ background: "#222" }}>
                     LOGIN
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Set Password Modal (for Invites) ── */}
+      {showSetPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-[#f0f0f0] border border-black/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-6 md:p-8 flex flex-col gap-6">
+              <div className="text-center">
+                <h2 className="font-display text-2xl font-semibold tracking-tight">Welcome, Artist!</h2>
+                <p className="font-mono text-xs opacity-50 mt-1">Please set a password for your new account so you can log in later.</p>
+              </div>
+
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setLoginError("");
+                  const { error } = await supabase.auth.updateUser({ password: newPassword });
+                  if (error) {
+                    setLoginError(error.message);
+                  } else {
+                    setShowSetPassword(false);
+                    // Clear the hash from the URL so it doesn't trigger again on refresh
+                    window.location.hash = "";
+                  }
+                }} 
+                className="flex flex-col gap-4"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-mono text-[10px] tracking-widest opacity-60">NEW PASSWORD</label>
+                  <input
+                    type="password" required minLength={6}
+                    value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full bg-white/50 border border-black/5 rounded-xl px-4 py-3 font-sans text-sm tracking-widest outline-none focus:bg-white focus:border-black/20 transition-all font-medium"
+                    placeholder="Min 6 characters"
+                  />
+                </div>
+                {loginError && <p className="text-red-600 font-mono text-xs text-center">{loginError}</p>}
+                
+                <div className="flex gap-3 justify-end mt-2">
+                  <button type="submit" className="px-6 py-2.5 rounded-full font-mono text-xs text-white w-full" style={{ background: "#222" }}>
+                    SAVE PASSWORD & ENTER
                   </button>
                 </div>
               </form>
