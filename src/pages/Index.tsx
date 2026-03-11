@@ -237,7 +237,6 @@ const Index = () => {
       <div 
         className="min-h-screen transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]"
         style={{ 
-          transform: view === "player" ? "scale(0.96) translateY(-2%)" : "scale(1) translateY(0)",
           opacity: view === "player" ? 0.3 : 1,
           pointerEvents: view === "player" ? "none" : "auto",
           filter: view === "player" ? "blur(8px)" : "blur(0px)" 
