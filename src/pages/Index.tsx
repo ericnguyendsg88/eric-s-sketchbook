@@ -6,25 +6,16 @@ import TrackThumbnail from "@/components/TrackThumbnail";
 import ListeningScreen from "@/components/ListeningScreen";
 import UploadModal, { type UploadPayload } from "@/components/UploadModal";
 import {
-  putBlob,
-  getBlobURL,
-  saveDemos,
-  loadDemos,
   saveLikes,
   loadLikes,
-  type StoredDemo,
   type LikesData,
 } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 
 type View = "home" | "folder" | "player";
 export type UserRole = "artist" | "listener";
 
-// Build a full Demo from stored metadata + resolved blob URLs
-async function hydrateDemo(meta: StoredDemo): Promise<Demo> {
-  const audioUrl = meta.hasAudio ? await getBlobURL(`audio-${meta.id}`) ?? undefined : undefined;
-  const coverUrl = meta.hasCover ? await getBlobURL(`cover-${meta.id}`) ?? undefined : undefined;
-  return { ...meta, audioUrl, coverUrl };
-}
+// (Hydration comes from Supabase now)
 
 const Index = () => {
   const [view, setView]           = useState<View>("home");
@@ -42,12 +33,33 @@ const Index = () => {
   const likedIds   = new Set(likesData.liked);
   const likeCounts = likesData.counts;
 
-  // ── Restore persisted demos from IndexedDB + sessionStorage on mount ──
+  const [showLogin, setShowLogin] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  // ── Restore persisted demos from Supabase on mount ──
   useEffect(() => {
     (async () => {
-      const metas = loadDemos();
-      const hydrated = await Promise.all(metas.map(hydrateDemo));
-      setDemos(hydrated);
+      // Check auth Session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) setRole("artist");
+
+      supabase.auth.onAuthStateChange((_event, curSession) => {
+        if (curSession) {
+          setRole("artist");
+          setShowLogin(false);
+        } else {
+          setRole("listener");
+        }
+      });
+
+      // Fetch Demos
+      const { data, error } = await supabase.from("demos").select("*").order("created_at", { ascending: true });
+      if (!error && data) {
+        setDemos(data as Demo[]);
+      }
+      
       setLikesData(loadLikes());
       setReady(true);
     })();
@@ -66,25 +78,7 @@ const Index = () => {
     };
   }, []);
 
-  // ── Persist demos metadata whenever demos change ──
-  useEffect(() => {
-    if (!ready) return;
-    const metas: StoredDemo[] = demos.map((d) => ({
-      id: d.id,
-      title: d.title,
-      year: d.year,
-      vibeNote: d.vibeNote,
-      processNote: d.processNote,
-      lyrics: d.lyrics,
-      reactions: d.reactions,
-      duration: d.duration,
-      trimStart: d.trimStart,
-      trimEnd: d.trimEnd,
-      hasAudio: !!d.audioUrl,
-      hasCover: !!d.coverUrl,
-    }));
-    saveDemos(metas);
-  }, [demos, ready]);
+  // ── Sync Demos to Supabase implicitly handled via actions ──
 
   // ── Persist likes whenever they change ──
   useEffect(() => {
@@ -108,42 +102,54 @@ const Index = () => {
 
   // ── Upload handler ──
   const handleUpload = useCallback(async (payload: UploadPayload) => {
-    const id = `track-${Date.now()}`;
+    // 1. Storage Upload logic for Supabase
+    let audioUrl = editingDemo?.audioUrl;
+    let coverUrl = editingDemo?.coverUrl;
 
-    // Write blobs to IndexedDB
-    await putBlob(`audio-${id}`, payload.audioFile);
-    if (payload.coverFile) await putBlob(`cover-${id}`, payload.coverFile);
+    if (payload.audioFile) {
+      const ext = payload.audioFile.name.split('.').pop();
+      const fileName = `audio-${Date.now()}.${ext}`;
+      await supabase.storage.from("media").upload(fileName, payload.audioFile);
+      audioUrl = supabase.storage.from("media").getPublicUrl(fileName).data.publicUrl;
+    }
 
-    // Build live blob URLs for this session
-    const audioUrl = URL.createObjectURL(payload.audioFile);
-    const coverUrl = payload.coverFile ? URL.createObjectURL(payload.coverFile) : undefined;
+    if (payload.coverFile) {
+      const ext = payload.coverFile.name.split('.').pop();
+      const fileName = `cover-${Date.now()}.${ext}`;
+      await supabase.storage.from("media").upload(fileName, payload.coverFile);
+      coverUrl = supabase.storage.from("media").getPublicUrl(fileName).data.publicUrl;
+    }
 
-    const newDemo: Demo = {
-      id,
+    const payloadData = {
       title: payload.title,
       year: payload.year,
-      vibeNote: payload.vibeNote,
-      processNote: payload.processNote,
+      "vibeNote": payload.vibeNote,
+      "processNote": payload.processNote || "",
       lyrics: payload.lyrics,
-      reactions: 0,
+      "audioUrl": audioUrl,
+      "coverUrl": coverUrl,
       duration: payload.duration,
-      audioUrl,
-      coverUrl,
+      "trimStart": editingDemo?.trimStart || 0,
+      "trimEnd": editingDemo?.trimEnd || payload.duration || 0,
     };
 
     if (editingDemo) {
-      setDemos((prev) => prev.map(d => d.id === editingDemo.id ? newDemo : d));
+      const { data } = await supabase.from("demos").update(payloadData).eq("id", editingDemo.id).select().single();
+      if (data) setDemos((prev) => prev.map(d => d.id === editingDemo.id ? (data as Demo) : d));
     } else {
-      setDemos((prev) => [...prev, newDemo]);
+      const { data } = await supabase.from("demos").insert([payloadData]).select().single();
+      if (data) setDemos((prev) => [...prev, data as Demo]);
     }
+    
     setShowUpload(false);
     setEditingDemo(undefined);
     setOpenYear(payload.year);
     setView("folder");
   }, [editingDemo]);
 
-  const handleDeleteDemo = useCallback((demo: Demo) => {
+  const handleDeleteDemo = useCallback(async (demo: Demo) => {
     if (confirm(`Are you sure you want to delete "${demo.title}"?`)) {
+      await supabase.from("demos").delete().eq("id", demo.id);
       setDemos((prev) => prev.filter(d => d.id !== demo.id));
     }
   }, []);
@@ -153,7 +159,8 @@ const Index = () => {
     setShowUpload(true);
   }, []);
 
-  const handleTrimDemo = useCallback((demoId: string, trimStart: number, trimEnd: number) => {
+  const handleTrimDemo = useCallback(async (demoId: string, trimStart: number, trimEnd: number) => {
+    await supabase.from("demos").update({ trimStart, trimEnd }).eq("id", demoId);
     setDemos((prev) => {
       const next = prev.map((d) => {
         if (d.id === demoId) return { ...d, trimStart, trimEnd };
@@ -220,30 +227,86 @@ const Index = () => {
         />
       )}
 
+      {/* ── Login Modal ── */}
+      {showLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-[#f0f0f0] border border-black/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-6 md:p-8 flex flex-col gap-6">
+              <div className="text-center">
+                <h2 className="font-display text-2xl font-semibold tracking-tight">Artist Login</h2>
+                <p className="font-mono text-xs opacity-50 mt-1">Authenticate to upload and modify tracks</p>
+              </div>
+
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setLoginError("");
+                  const { error } = await supabase.auth.signInWithPassword({ email, password });
+                  if (error) setLoginError(error.message);
+                }} 
+                className="flex flex-col gap-4"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-mono text-[10px] tracking-widest opacity-60">EMAIL</label>
+                  <input
+                    type="email" required
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-white/50 border border-black/5 rounded-xl px-4 py-3 font-display outline-none focus:bg-white focus:border-black/20 transition-all font-medium"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-mono text-[10px] tracking-widest opacity-60">PASSWORD</label>
+                  <input
+                    type="password" required
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white/50 border border-black/5 rounded-xl px-4 py-3 font-sans text-sm tracking-widest outline-none focus:bg-white focus:border-black/20 transition-all font-medium"
+                  />
+                </div>
+                {loginError && <p className="text-red-600 font-mono text-xs text-center">{loginError}</p>}
+                
+                <div className="flex gap-3 justify-end mt-2">
+                  <button type="button" onClick={() => setShowLogin(false)} className="px-6 py-2.5 rounded-full font-mono text-xs opacity-60 hover:opacity-100 transition-opacity">
+                    CANCEL
+                  </button>
+                  <button type="submit" className="px-6 py-2.5 rounded-full font-mono text-xs text-white" style={{ background: "#222" }}>
+                    LOGIN
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Top nav ── */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-8 py-4 border-b"
-        style={{ background: "rgba(235, 235, 235, 0.6)", backdropFilter: "blur(20px)", borderColor: "rgba(0,0,0,0.08)" }}
+        style={{ 
+          background: "rgba(35, 35, 35, 0.55)", 
+          backdropFilter: "blur(24px) contrast(1.1)", 
+          borderColor: "rgba(255,255,255,0.08)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.1) inset, 0 4px 16px rgba(0,0,0,0.05)"
+        }}
       >
         <div className="flex items-center gap-2 font-mono text-xs tracking-wider">
           <button
             onClick={handleBackToHome}
             className="transition-colors duration-200"
-            style={{ color: view === "home" ? "#1a1a1a" : "#888888" }}
+            style={{ color: view === "home" ? "#f2f2f2" : "#a0a0a0" }}
           >
             eric the kid
           </button>
           {view === "folder" && openYear && (
             <>
-              <span style={{ color: "#bbbbbb" }}>›</span>
-              <span style={{ color: openYearPalette?.accent ?? "#1a1a1a" }}>{openYear}</span>
+              <span style={{ color: "#777777" }}>›</span>
+              <span style={{ color: openYearPalette?.accent ? openYearPalette.accent : "#e2e2e2", filter: "brightness(1.5)" }}>{openYear}</span>
             </>
           )}
         </div>
 
         <div className="flex items-center gap-4">
           {demos.length > 0 && (
-            <p className="font-mono text-[10px] tracking-widest opacity-30" style={{ color: "#1a1a1a" }}>
+            <p className="font-mono text-[10px] tracking-widest opacity-60" style={{ color: "#e2e2e2" }}>
               {demos.length} track{demos.length !== 1 ? "s" : ""}
             </p>
           )}
@@ -258,7 +321,11 @@ const Index = () => {
             }}
           >
             <button
-              onClick={() => setRole("artist")}
+              onClick={async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) setRole("artist");
+                else setShowLogin(true);
+              }}
               className="px-4 py-1.5 font-display text-sm md:text-base font-medium rounded-full transition-all duration-300"
               style={{
                 background: role === "artist" ? "rgba(255,255,255,0.8)" : "transparent",
@@ -269,7 +336,10 @@ const Index = () => {
               Artist
             </button>
             <button
-              onClick={() => setRole("listener")}
+              onClick={async () => {
+                setRole("listener");
+                await supabase.auth.signOut();
+              }}
               className="px-4 py-1.5 font-display text-sm md:text-base font-medium rounded-full transition-all duration-300"
               style={{
                 background: role === "listener" ? "rgba(255,255,255,0.8)" : "transparent",
