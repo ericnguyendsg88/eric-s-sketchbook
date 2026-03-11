@@ -518,7 +518,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
             ) : (
               <>
                 <div
-                  className="w-full h-3 md:h-4 rounded-full cursor-pointer overflow-hidden relative shadow-inner group transition-all duration-300 hover:scale-y-110"
+                  className="w-full h-3 md:h-4 rounded-full cursor-pointer relative shadow-inner group transition-all duration-300 hover:scale-y-110"
                   style={{ background: "rgba(0,0,0,0.15)", backdropFilter: "blur(8px)" }}
                   onClick={seekTo}
                 >
@@ -526,9 +526,12 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
                   {trimStart > 0 && <div className="absolute top-0 bottom-0 bg-black/30" style={{ left: 0, width: `${(trimStart / Math.max(1, duration)) * 100}%` }} />}
                   {trimEnd < duration && <div className="absolute top-0 bottom-0 bg-black/30" style={{ left: `${(trimEnd / Math.max(1, duration)) * 100}%`, right: 0 }} />}
                   <div
-                    className="h-full rounded-full absolute left-0 top-0 bottom-0 shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                    style={{ width: `${progress * 100}%`, background: "rgba(255,255,255,0.95)", transition: "width 0.1s linear" }}
-                  />
+                    className="h-full rounded-full absolute left-0 top-0 bottom-0 shadow-[0_0_10px_rgba(255,255,255,0.5)] flex items-center justify-end"
+                    style={{ width: `${progress * 100}%`, background: "rgba(255,255,255,0.95)", transition: "width 0.1s linear", minWidth: "4px" }}
+                  >
+                    {/* Tiny drag handle for mobile explicitly visible */}
+                    <div className="w-2 h-full bg-white rounded-full shadow-md transform scale-y-[1.5] shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                  </div>
                 </div>
                 <div className="flex justify-between font-mono text-[10px] opacity-30" style={{ color: "#1a1a1a" }}>
                   <span>{formatTime(Math.max(0, currentTime - trimStart))}</span>
