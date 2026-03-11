@@ -210,8 +210,7 @@ const Index = () => {
 
   return (
     <div
-      className={`min-h-screen transition-all duration-[1800ms] ease-out ${focused ? "opacity-100" : "opacity-60"}`}
-      style={{ background: "#f2f2f2" }}
+      className={`min-h-screen transition-all duration-[1800ms] ease-out bg-sketchy ${focused ? "opacity-100" : "opacity-60"}`}
     >
       {showUpload && (
         <UploadModal 
@@ -224,7 +223,7 @@ const Index = () => {
       {/* ── Top nav ── */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-8 py-4 border-b"
-        style={{ background: "#f2f2f2cc", backdropFilter: "blur(20px)", borderColor: "#00000010" }}
+        style={{ background: "rgba(235, 235, 235, 0.6)", backdropFilter: "blur(20px)", borderColor: "rgba(0,0,0,0.08)" }}
       >
         <div className="flex items-center gap-2 font-mono text-xs tracking-wider">
           <button
