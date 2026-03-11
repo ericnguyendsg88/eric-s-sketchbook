@@ -289,19 +289,15 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
       };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col p-4 md:p-8 overflow-y-auto overflow-x-hidden selection:bg-black selection:text-white transition-opacity duration-300 scroll-smooth isolate"
-      style={{ opacity: 1, backgroundColor: "#f6f6f6" }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onScroll={(e) => setPageScroll(e.currentTarget.scrollTop)}
-    >
-      {/* ── Apple Music Glassmorphism Background ── */}
+    <>
+      <div className="fixed inset-0 z-40 bg-[#f6f6f6]" />
+      
+      {/* ── Apple Music Glassmorphism Background (Static) ── */}
       {demo.coverUrl && (
         <>
           {/* Base image severely blurred */}
           <div 
-            className="fixed inset-0 -z-10"
+            className="fixed inset-0 z-40"
             style={{
               backgroundImage: `url(${staticCoverUrl || demo.coverUrl})`,
               backgroundSize: 'cover',
@@ -312,15 +308,23 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
             }}
           />
           {/* Glass overlay */}
-          <div className="fixed inset-0 -z-10" style={{ background: "rgba(246, 246, 246, 0.4)", backdropFilter: "blur(40px)" }} />
+          <div className="fixed inset-0 z-40" style={{ background: "rgba(246, 246, 246, 0.4)", backdropFilter: "blur(40px)" }} />
         </>
       )}
       
       {/* Ambient tint fallback */}
       <div
-        className="fixed inset-0 -z-10"
+        className="fixed inset-0 z-40 pointer-events-none"
         style={{ background: `radial-gradient(ellipse 80% 80% at 50% 50%, ${palette.accent}15 0%, transparent 80%)` }}
       />
+
+    <div
+      className="fixed inset-0 z-50 flex flex-col p-4 md:p-8 overflow-y-auto overflow-x-hidden selection:bg-black selection:text-white transition-opacity duration-300 scroll-smooth isolate"
+      style={{ opacity: 1 }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onScroll={(e) => setPageScroll(e.currentTarget.scrollTop)}
+    >
       <audio
         ref={audioRef}
         src={demo.audioUrl}
@@ -882,7 +886,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
           to   { opacity: 0; }
         }
       `}</style>
-    </div>
+    </>
   );
 };
 
