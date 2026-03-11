@@ -377,7 +377,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
       </div>
 
       {/* ── Main layout: [PREV] [art + controls] [lyrics] [NEXT] ── */}
-      <div className="relative z-10 flex-1 flex flex-col md:flex-row gap-4 md:gap-0 mt-6 md:mt-0">
+      <div className="relative z-10 flex-1 flex flex-col md:flex-row gap-4 md:gap-0 md:items-start mt-6 md:mt-0">
 
         {/* PREV zone (hidden on mobile) */}
         <button
@@ -385,9 +385,10 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
           disabled={!prevDemo}
           onMouseEnter={() => setHoverPrev(true)}
           onMouseLeave={() => setHoverPrev(false)}
-          className="hidden md:flex flex-shrink-0 items-center justify-center disabled:cursor-default"
+          className="hidden md:flex flex-shrink-0 items-center justify-center disabled:cursor-default sticky top-24"
           style={{
             width: "13%",
+            height: "calc(100vh - 12rem)",
             background: hoverPrev && prevDemo ? `${palette.accent}07` : "transparent",
             transition: "background 0.2s ease",
           }}
@@ -429,7 +430,7 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
 
         {/* CENTER — album art + controls */}
         <div
-          className="flex-1 flex flex-col items-center justify-start md:justify-center gap-6 px-4 py-8 md:py-0 sticky md:static top-0"
+          className="flex-1 flex flex-col items-center justify-start md:justify-center gap-6 px-4 py-8 md:py-0 sticky top-0 md:top-24 md:h-[calc(100vh-12rem)]"
           style={{ ...centerStyle, zIndex: 20 }}
         >
           {/* Big album art */}
@@ -821,9 +822,10 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
           disabled={!nextDemo}
           onMouseEnter={() => setHoverNext(true)}
           onMouseLeave={() => setHoverNext(false)}
-          className="hidden md:flex flex-shrink-0 items-center justify-center disabled:cursor-default"
+          className="hidden md:flex flex-shrink-0 items-center justify-center disabled:cursor-default sticky top-24"
           style={{
             width: "13%",
+            height: "calc(100vh - 12rem)",
             background: hoverNext && nextDemo ? `${palette.accent}07` : "transparent",
             transition: "background 0.2s ease",
           }}
