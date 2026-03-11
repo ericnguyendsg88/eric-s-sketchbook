@@ -68,7 +68,8 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
     if (!demo.coverUrl) return;
 
     const img = new Image();
-    // Allow local blobs to pass through by omitting crossOrigin entirely
+    img.crossOrigin = "anonymous"; // Bypass potential CORS on bucket for canvas read
+    
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
@@ -85,16 +86,18 @@ const ListeningScreen = ({ demo, allDemos, role, onBack, onSelectDemo, liked = f
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(img, 0, 0, w, h);
-          setStaticCoverUrl(canvas.toDataURL("image/jpeg", 0.8)); // Use JPEG for smaller memory footprint
+          setStaticCoverUrl(canvas.toDataURL("image/jpeg", 0.8)); // Use JPEG for smaller memory footprint and NO animation
         }
       } catch (err) {
+        console.warn("Could not extract static background due to cross-origin taint.", err);
         setStaticCoverUrl(demo.coverUrl); // fallback to original animation if blocked
       }
     };
     img.onerror = () => {
       setStaticCoverUrl(demo.coverUrl); // fallback to original animation if failed loading for canvas draw
     };
-    img.src = demo.coverUrl;
+    // Append dummy string to force fetch avoiding strict cached cors issues
+    img.src = demo.coverUrl + (demo.coverUrl.includes("?") ? "&" : "?") + "cors=1";
   }, [demo.coverUrl]);
 
   // Audio Visualizer Context
